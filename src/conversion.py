@@ -118,7 +118,64 @@ def byte_decode(B, d, q=3329):
 
     return F
 
+def compress(x, d, q=3329):
+    """
+    Compress_d : Z_q -> Z_{2^d}
 
+        x |-> round((2^d / q) * x) mod 2^d
+
+    Parameters:
+        x : integer or list of integers in Z_q
+        d : integer with d < 12
+        q : modulus (default: 3329)
+
+    Returns:
+        compressed integer or list of integers
+    """
+    if not (0 <= d < 12):
+        raise ValueError("d must satisfy 0 <= d < 12.")
+
+    mod = 1 << d
+
+    def _compress_one(a):
+        if not (0 <= a < q):
+            raise ValueError("Each input must be in Z_q.")
+        return int(round((mod / q) * a)) % mod
+
+    if isinstance(x, int):
+        return _compress_one(x)
+
+    return [_compress_one(a) for a in x]
+
+
+def decompress(y, d, q=3329):
+    """
+    Decompress_d : Z_{2^d} -> Z_q
+
+        y |-> round((q / 2^d) * y)
+
+    Parameters:
+        y : integer or list of integers in Z_{2^d}
+        d : integer with d < 12
+        q : modulus (default: 3329)
+
+    Returns:
+        decompressed integer or list of integers in Z_q
+    """
+    if not (0 <= d < 12):
+        raise ValueError("d must satisfy 0 <= d < 12.")
+
+    mod = 1 << d
+
+    def _decompress_one(a):
+        if not (0 <= a < mod):
+            raise ValueError(f"Each input must be in Z_{{2^{d}}}.")
+        return int(round((q / mod) * a))
+
+    if isinstance(y, int):
+        return _decompress_one(y)
+
+    return [_decompress_one(a) for a in y]
 
 def main():
     # bits = [1, 0, 1, 0, 0, 0, 0, 0]   # 00000101 in little-endian bit order
@@ -136,6 +193,13 @@ def main():
     print(len(encoded))      # 96 = 32 * 3
     print(list(encoded[:4]))
 
+    x = 1000
+    c = compress(x, d=4)
+    z = decompress(c, d=4)
+
+    print("x =", x)
+    print("compressed =", c)
+    print("decompressed =", z)
 
 if __name__ == "__main__":
     main()

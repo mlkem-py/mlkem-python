@@ -83,22 +83,122 @@ def k_pke_keygen(d, k, eta1, q=3329):
 
     return ek_pke, dk_pke
 
-def main():
-    # 32-byte randomness input
-    d = bytes(range(32))
+def k_pke_encrypt(ek_pke, m, r, k, eta1, eta2, du, dv, q=3329):
+    """
+    Implements Algorithm 14: K-PKE.Encrypt(ek_PKE, m, r)
 
+    Assumes the following subroutines already exist:
+
+        byte_decode(B, d, q=3329)
+        byte_encode(F, d, q=3329)
+        sample_ntt(B, q=3329)
+        sample_poly_cbd(B, eta, q=3329)
+        prf(eta, s, b)
+        ntt(f, zeta, q=3329)
+        ntt_inverse(f_hat, zeta, q=3329)
+        multiply_ntts(f_hat, g_hat, zeta, q=3329)
+        compress(F, d, q=3329)
+        decompress(F, d, q=3329)
+
+    and that your NTT code uses the same zeta value throughout.
+    """
+    ek_pke = bytes(ek_pke)
+    m = bytes(m)
+    r = bytes(r)
+
+    if len(m) != 32:
+        raise ValueError("m must be exactly 32 bytes.")
+    if len(r) != 32:
+        raise ValueError("r must be exactly 32 bytes.")
+    if len(ek_pke) != 384 * k + 32:
+        raise ValueError(f"ek_pke must have length {384*k + 32} bytes.")
+
+    N = 0
+
+    # 1-2: decode t_hat
+    t_hat_bytes = ek_pke[:384 * k]
+    t_hat = [
+        conversion.byte_decode(t_hat_bytes[384 * i:384 * (i + 1)], d=12, q=q)
+        for i in range(k)
+    ]
+
+    # 3: extract rho
+    rho = ek_pke[384 * k:384 * k + 32]
+
+    # 4-8: regenerate A_hat
+    A_hat = [[None for _ in range(k)] for _ in range(k)]
+    for i in range(k):
+        for j in range(k):
+            A_hat[i][j] = sample.sample_ntt(rho + bytes([j, i]), q=q)
+
+    # 9-12: generate y
+    y = [None] * k
+    for i in range(k):
+        y[i] = sample.sample_poly_cbd(hash_functions.prf(eta1, r, N), eta1, q=q)
+        N += 1
+
+    # 13-16: generate e1
+    e1 = [None] * k
+    for i in range(k):
+        e1[i] = sample.sample_poly_cbd(hash_functions.prf(eta2, r, N), eta2, q=q)
+        N += 1
+
+    # 17: generate e2
+    e2 = sample.sample_poly_cbd(hash_functions.prf(eta2, r, N), eta2, q=q)
+
+    # 18: y_hat = NTT(y)
+    y_hat = [ntts.ntt(poly, zeta=17, q=q) for poly in y]
+
+    # 19: u = NTT^{-1}(A_hat^T o y_hat) + e1
+    u = []
+    for i in range(k):
+        acc = [0] * 256
+        for j in range(k):
+            # A_hat^T[i,j] = A_hat[j][i]
+            prod = ntts.multiply_ntts(A_hat[j][i], y_hat[j], zeta=17, q=q)
+            acc = [(acc[x] + prod[x]) % q for x in range(256)]
+
+        poly = ntts.ntt_inverse(acc, zeta=17, q=q)
+        poly = [(poly[x] + e1[i][x]) % q for x in range(256)]
+        u.append(poly)
+
+    # 20: mu = Decompress_1(ByteDecode_1(m))
+    mu = conversion.decompress(conversion.byte_decode(m, d=1, q=q), d=1, q=q)
+
+    # 21: v = NTT^{-1}(t_hat o y_hat) + e2 + mu
+    acc = [0] * 256
+    for j in range(k):
+        prod = ntts.multiply_ntts(t_hat[j], y_hat[j], zeta=17, q=q)
+        acc = [(acc[x] + prod[x]) % q for x in range(256)]
+
+    v = ntts.ntt_inverse(acc, zeta=17, q=q)
+    v = [(v[x] + e2[x] + mu[x]) % q for x in range(256)]
+
+    # 22: c1 = ByteEncode_du(Compress_du(u))
+    c1 = b"".join(conversion.byte_encode(conversion.compress(poly, d=du, q=q), d=du, q=q) for poly in u)
+
+    # 23: c2 = ByteEncode_dv(Compress_dv(v))
+    c2 = conversion.byte_encode(conversion.compress(v, d=dv, q=q), d=dv, q=q)
+
+    # 24: c = c1 || c2
+    return c1 + c2
+
+def main():
     # Example for ML-KEM-512 parameters
     k = 2
     eta1 = 3
+    eta2 = 2
+    du = 10
+    dv = 4
 
+    d = bytes(range(32)) # 32-byte randomness input
     ek_pke, dk_pke = k_pke_keygen(d, k=k, eta1=eta1)
 
-    print("len(ek_pke) =", len(ek_pke))
-    print("len(dk_pke) =", len(dk_pke))
+    m = bytes([0x42] * 32)
+    r = bytes([0x99] * 32)
 
-    print("ek_pke (first 32 bytes) =", ek_pke[:32].hex())
-    print("dk_pke (first 32 bytes) =", dk_pke[:32].hex())
-
-
+    c = k_pke_encrypt(ek_pke, m, r, k=k, eta1=eta1, eta2=eta2, du=du, dv=dv)
+    print(len(c))
+    print(c[:32].hex())
 if __name__ == "__main__":
     main()
