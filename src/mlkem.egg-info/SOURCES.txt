@@ -1,0 +1,6 @@
+README.md
+pyproject.toml
+src/mlkem.egg-info/PKG-INFO
+src/mlkem.egg-info/SOURCES.txt
+src/mlkem.egg-info/dependency_links.txt
+src/mlkem.egg-info/top_level.txt
