@@ -183,22 +183,89 @@ def k_pke_encrypt(ek_pke, m, r, k, eta1, eta2, du, dv, q=3329):
     # 24: c = c1 || c2
     return c1 + c2
 
+def k_pke_decrypt(dk_pke, c, k, du, dv, q=3329):
+    """
+    Implements Algorithm 15: K-PKE.Decrypt(dk_PKE, c)
+
+    Assumes the following subroutines already exist:
+
+        byte_decode(B, d, q=3329)
+        byte_encode(F, d, q=3329)
+        decompress(F, d, q=3329)
+        compress(F, d, q=3329)
+        ntt(f, zeta, q=3329)
+        ntt_inverse(f_hat, zeta, q=3329)
+        multiply_ntts(f_hat, g_hat, zeta, q=3329)
+
+    Returns:
+        m : 32-byte message
+    """
+    dk_pke = bytes(dk_pke)
+    c = bytes(c)
+
+    c1_len = 32 * du * k
+    c2_len = 32 * dv
+
+    if len(dk_pke) != 384 * k:
+        raise ValueError(f"dk_pke must have length {384 * k} bytes.")
+    if len(c) != c1_len + c2_len:
+        raise ValueError(f"ciphertext must have length {c1_len + c2_len} bytes.")
+
+    # 1-2: split ciphertext
+    c1 = c[:c1_len]
+    c2 = c[c1_len:c1_len + c2_len]
+
+    # 3: u' <- Decompress_du(ByteDecode_du(c1))
+    u_prime = []
+    for i in range(k):
+        block = c1[32 * du * i:32 * du * (i + 1)]
+        u_prime.append(conversion.decompress(conversion.byte_decode(block, d=du, q=q), d=du, q=q))
+
+    # 4: v' <- Decompress_dv(ByteDecode_dv(c2))
+    v_prime = conversion.decompress(conversion.byte_decode(c2, d=dv, q=q), d=dv, q=q)
+
+    # 5: s_hat <- ByteDecode_12(dk_pke)
+    s_hat = []
+    for i in range(k):
+        block = dk_pke[384 * i:384 * (i + 1)]
+        s_hat.append(conversion.byte_decode(block, d=12, q=q))
+
+    # 6: w <- v' - NTT^{-1}(s_hat^T o NTT(u'))
+    u_hat = [ntts.ntt(poly, zeta=17, q=q) for poly in u_prime]
+
+    acc = [0] * 256
+    for i in range(k):
+        prod = ntts.multiply_ntts(s_hat[i], u_hat[i], zeta=17, q=q)
+        acc = [(acc[j] + prod[j]) % q for j in range(256)]
+
+    temp = ntts.ntt_inverse(acc, zeta=17, q=q)
+    w = [(v_prime[j] - temp[j]) % q for j in range(256)]
+
+    # 7: m <- ByteEncode_1(Compress_1(w))
+    m = conversion.byte_encode(conversion.compress(w, d=1, q=q), d=1, q=q)
+
+    # 8: return m
+    return m
+
 def main():
-    # Example for ML-KEM-512 parameters
+    # Example parameter set similar to ML-KEM-512
     k = 2
     eta1 = 3
     eta2 = 2
     du = 10
     dv = 4
 
-    d = bytes(range(32)) # 32-byte randomness input
+    d = bytes(range(32))
     ek_pke, dk_pke = k_pke_keygen(d, k=k, eta1=eta1)
 
     m = bytes([0x42] * 32)
     r = bytes([0x99] * 32)
 
     c = k_pke_encrypt(ek_pke, m, r, k=k, eta1=eta1, eta2=eta2, du=du, dv=dv)
-    print(len(c))
     print(c[:32].hex())
+    m_dec = k_pke_decrypt(dk_pke, c, k=k, du=du, dv=dv)
+
+    print(m_dec == m)
+
 if __name__ == "__main__":
     main()
