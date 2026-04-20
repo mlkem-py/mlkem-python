@@ -25,6 +25,7 @@ g_hat = ntt(g, zeta=17, q=3329)
 h_hat = multiply_ntts(f_hat, g_hat, zeta=17, q=3329)
 h = ntt_inverse(h_hat, zeta=17, q=3329)
 
+```python
 k = 2
 eta1 = 3
 eta2 = 2
