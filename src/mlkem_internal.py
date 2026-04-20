@@ -172,5 +172,6 @@ def main():
     K1, c = encaps_internal(ek, m, k=k, eta1=ETA1, eta2=ETA2, du=du, dv=dv)
     K2 = decaps_internal(dk, c, k=k, du=du, dv=dv)
     print(K1 == K2)
+    
 if __name__ == "__main__":
     main()
