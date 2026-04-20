@@ -39,6 +39,55 @@ def ml_kem_keygen(k, eta1):
     ek, dk = mlkem_internal.keygen_internal(d, z, k=k, eta1=eta1)
     return ek, dk
 
+def ml_kem_encaps(ek, k, eta1, eta2, du, dv):
+    """
+    Implements Algorithm 20: ML-KEM.Encaps(ek)
+
+    Parameters:
+        ek   : checked encapsulation key
+        k    : parameter set value
+        eta1 : parameter set value
+        eta2 : parameter set value
+        du   : compression parameter
+        dv   : compression parameter
+
+    Returns:
+        (K, c)
+
+    Raises:
+        RuntimeError if randomness generation fails.
+    """
+
+    ek = bytes(ek)
+
+    try:
+        m = secrets.token_bytes(32)
+    except Exception as e:
+        raise RuntimeError("Random byte generation failed.") from e
+
+    if m is None:
+        raise RuntimeError("Random byte generation failed.")
+
+    K, c = mlkem_internal.encaps_internal(ek, m, k=k, eta1=eta1, eta2=eta2, du=du, dv=dv)
+    return K, c
+
+
+def ml_kem_decaps(dk, c, k, du, dv):
+    """
+    Implements Algorithm 21: ML-KEM.Decaps(dk, c)
+
+    Parameters:
+        dk : checked decapsulation key
+        c  : checked ciphertext
+        k  : parameter set value
+        du : compression parameter
+        dv : compression parameter
+
+    Returns:
+        K : 32-byte shared secret key
+    """
+    return mlkem_internal.decaps_internal(dk, c, k=k, du=du, dv=dv)
+
 
 def check_encapsulation_input(ek, k, q=3329):
     """
@@ -72,60 +121,6 @@ def check_encapsulation_input(ek, k, q=3329):
         return False
 
     return True
-def ml_kem_encaps(ek, k, eta1, eta2, du, dv):
-    """
-    Implements Algorithm 20: ML-KEM.Encaps(ek)
-
-    Parameters:
-        ek   : checked encapsulation key
-        k    : parameter set value
-        eta1 : parameter set value
-        eta2 : parameter set value
-        du   : compression parameter
-        dv   : compression parameter
-
-    Returns:
-        (K, c)
-
-    Raises:
-        RuntimeError if randomness generation fails.
-    """
-
-    if not check_encapsulation_input(ek, k=2):
-        raise ValueError("check_encapsulation_key failed.")
-    
-    ek = bytes(ek)
-
-    try:
-        m = secrets.token_bytes(32)
-    except Exception as e:
-        raise RuntimeError("Random byte generation failed.") from e
-
-    if m is None:
-        raise RuntimeError("Random byte generation failed.")
-
-    K, c = mlkem_internal.encaps_internal(ek, m, k=k, eta1=eta1, eta2=eta2, du=du, dv=dv)
-    return K, c
-
-
-def ml_kem_decaps(dk, c, k, du, dv):
-    """
-    Implements Algorithm 21: ML-KEM.Decaps(dk, c)
-
-    Parameters:
-        dk : checked decapsulation key
-        c  : checked ciphertext
-        k  : parameter set value
-        du : compression parameter
-        dv : compression parameter
-
-    Returns:
-        K : 32-byte shared secret key
-    """
-    if not check_decapsulation_input(dk, c, k, du, dv):
-        raise ValueError("Decapsulation input check failed.")
-    
-    return mlkem_internal.decaps_internal(dk, c, k=k, du=du, dv=dv)
 
 def check_decapsulation_input(dk, c, k, du, dv):
     """
