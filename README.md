@@ -4,7 +4,7 @@ This repository contains a Python implementation of core algorithms from the **M
 
 The code is intended for **learning, experimentation, and education**. 
 
-## Important Notes
+## Notes
 
 ### 1. This is not a production implementation
 
