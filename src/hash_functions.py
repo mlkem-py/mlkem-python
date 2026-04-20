@@ -1,6 +1,5 @@
 import hashlib
 
-
 def H(s):
     """
     H(s) := SHA3-256(s)
@@ -14,7 +13,6 @@ def H(s):
     s = bytes(s)
     return hashlib.sha3_256(s).digest()
 
-
 def J(s):
     """
     J(s) := SHAKE256(s, 8 * 32)
@@ -27,7 +25,6 @@ def J(s):
     """
     s = bytes(s)
     return hashlib.shake_256(s).digest(32)
-
 
 def G(c):
     """
@@ -45,10 +42,6 @@ def G(c):
     a = out[:32]
     b = out[32:]
     return a, b
-
-
-import hashlib
-
 
 def prf(eta, s, b):
     """
