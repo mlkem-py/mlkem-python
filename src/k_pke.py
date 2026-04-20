@@ -23,18 +23,14 @@ import sample
 def k_pke_keygen(d, k, eta1, q=3329):
     """
     Implements Algorithm 13: K-PKE.KeyGen(d)
-
-    Assumes the following subroutines are already implemented:
-
-        G(c) -> (rho, sigma)                     # each 32 bytes
-        prf(eta, sigma, N) -> bytes             # returns 64*eta bytes
-        sample_ntt(B, q=3329) -> list[256]
-        sample_poly_cbd(B, eta, q=3329) -> list[256]
-        ntt(f, zeta, q=3329) -> list[256]
-        multiply_ntts(f_hat, g_hat, zeta, q=3329) -> list[256]
-        byte_encode(F, d, q=3329) -> bytes
-
-    Also assumes zeta is the NTT root used by your NTT implementation.
+    Input:
+        d: randomness in B^(32)
+        k: determines the dimension of the matrix A_hat
+            k = 2 (MKML-KEM-512), 3 (ML-KEM-768), or 4 (ML-KEM-1024)
+        eta1: specifies the distribution for generating the vectors s and e
+    Output:
+        encryption key in B^(384k + 32)
+        decryotion key in B^(384k)
     """
     d = bytes(d)
     if len(d) != 32:
@@ -86,21 +82,16 @@ def k_pke_keygen(d, k, eta1, q=3329):
 def k_pke_encrypt(ek_pke, m, r, k, eta1, eta2, du, dv, q=3329):
     """
     Implements Algorithm 14: K-PKE.Encrypt(ek_PKE, m, r)
-
-    Assumes the following subroutines already exist:
-
-        byte_decode(B, d, q=3329)
-        byte_encode(F, d, q=3329)
-        sample_ntt(B, q=3329)
-        sample_poly_cbd(B, eta, q=3329)
-        prf(eta, s, b)
-        ntt(f, zeta, q=3329)
-        ntt_inverse(f_hat, zeta, q=3329)
-        multiply_ntts(f_hat, g_hat, zeta, q=3329)
-        compress(F, d, q=3329)
-        decompress(F, d, q=3329)
-
-    and that your NTT code uses the same zeta value throughout.
+    Input:
+        ek_pke: encryption key
+        m: message B^(32)
+        r: randomness in B^(32)
+        k: determines the dimension of the matrix A_hat
+        eta1: specifies the distribution for generating the vectors s and e 
+        eta2: specifies the distribution for generating the vectors e1 and e2
+        du and dv: serve as parameters and inputs for the functions compress, decompress, byte_encode, and byte_decode
+    Output: 
+        c: ciphertext in B^(32(du*k+dv))
     """
     ek_pke = bytes(ek_pke)
     m = bytes(m)
@@ -186,17 +177,6 @@ def k_pke_encrypt(ek_pke, m, r, k, eta1, eta2, du, dv, q=3329):
 def k_pke_decrypt(dk_pke, c, k, du, dv, q=3329):
     """
     Implements Algorithm 15: K-PKE.Decrypt(dk_PKE, c)
-
-    Assumes the following subroutines already exist:
-
-        byte_decode(B, d, q=3329)
-        byte_encode(F, d, q=3329)
-        decompress(F, d, q=3329)
-        compress(F, d, q=3329)
-        ntt(f, zeta, q=3329)
-        ntt_inverse(f_hat, zeta, q=3329)
-        multiply_ntts(f_hat, g_hat, zeta, q=3329)
-
     Returns:
         m : 32-byte message
     """
