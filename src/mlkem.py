@@ -170,6 +170,7 @@ def main():
     print(len(c))   # 32 * (du*k + dv) = 768
     print(len(K2))   # 32
     print(K1 == K2)
+    
     print(check_decapsulation_input(dk, c, k, du, dv)) 
 if __name__ == "__main__":
     main()
